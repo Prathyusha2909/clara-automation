@@ -1,146 +1,179 @@
-# Clara AI Assignment - Automation Pipeline
+# Clara Answers Intern Assignment - Automation Repo
 
-This repository implements a zero-cost, reproducible Clara onboarding automation pipeline.
+This repository implements both required pipelines with deterministic, zero-cost parsing and strict output schemas.
 
-## Architecture and Data Flow
+## Architecture
 
 ### Pipeline A (Demo -> v1)
-1. Read demo transcript from `inputs/demo/<account_id>.txt`
-2. Extract structured account memo fields (rule-based parsing, no paid LLMs)
-3. Generate:
+1. Load each file from `inputs/demo/*.txt`.
+2. Extract explicit facts only (company name, business hours, emergency definition, routing, transfer rules).
+3. Write:
    - `outputs/accounts/<account_id>/v1/memo.json`
    - `outputs/accounts/<account_id>/v1/agent_spec.json`
-4. Create/reuse task tracker issue (GitHub Issues) or mock locally
-5. Persist account task metadata:
+4. Create/reuse a task tracker item (GitHub Issue if configured, otherwise mocked local tracker).
+5. Write task metadata:
    - `outputs/accounts/<account_id>/task.json`
+   - `outputs/tasks.json`
 
-### Pipeline B (Onboarding -> v2 patch)
-1. Read onboarding transcript from `inputs/onboarding/<account_id>.txt`
-2. Load v1 memo
-3. Extract explicit updates (business hours, transfer timeout, routing, constraints)
-4. Apply patch safely without overwriting unrelated fields
-5. Handle conflicts by keeping v1 value unless explicit override is clear
-6. Generate:
+### Pipeline B (Onboarding -> v2)
+1. Load each file from `inputs/onboarding/*.txt` or `inputs/onboarding/*.json`.
+2. Load `v1/memo.json` for same account.
+3. Parse onboarding updates and patch only explicit fields.
+4. Keep v1 values when onboarding is conflicting/ambiguous.
+5. Write:
    - `outputs/accounts/<account_id>/v2/memo.json`
    - `outputs/accounts/<account_id>/v2/agent_spec.json`
-   - `outputs/accounts/<account_id>/changes.json`
+   - `outputs/accounts/<account_id>/v2/changes.json`
+6. Update local/global tracker files.
 
-### Orchestration
-- n8n workflow export: `workflows/n8n_clara_pipeline.json`
-- n8n command node runs: `python3 scripts/run_all.py`
+### Deterministic + No Hallucination Rules
+- No paid APIs or LLM calls.
+- Only explicit transcript/form values are written.
+- Missing values remain blank/empty and are added to `questions_or_unknowns`.
+- Idempotent behavior:
+  - Existing v1/v2 outputs are skipped unless `--force`.
+  - `changes.json` is rewritten deterministically and not duplicated.
 
-## Repository Structure
+## Required Output Schemas
 
-- `inputs/demo/`, `inputs/onboarding/`: input transcripts
-- `scripts/`
-  - `run_all.py` (primary CLI entrypoint)
-  - `run_demo.py` (Pipeline A only)
-  - `run_onboarding.py` (Pipeline B only)
-  - `clara_pipeline.py` (shared schema + parsing + patch logic + tracker logic)
-- `workflows/n8n_clara_pipeline.json`: n8n export (Manual Trigger -> Execute Command)
-- `outputs/accounts/<account_id>/...`: generated account artifacts
-- `outputs/task_tracker/items.json`: global task tracker snapshot
-- `docker-compose.yml`, `Dockerfile.n8n`: local n8n runtime
-- `validate_assignment.py`: compliance validator
+### Account Memo JSON (v1 and v2)
+Exact fields:
+- `account_id`
+- `company_name`
+- `business_hours` (`days`, `start`, `end`, `timezone`) where `days` is always an array
+- `office_address`
+- `services_supported`
+- `emergency_definition`
+- `emergency_routing_rules` (`contacts`, `fallback`, `notes`)
+- `non_emergency_routing_rules` (`contacts`, `notes`)
+- `call_transfer_rules` (`timeout_seconds`, `retries`, `fail_message`, `routing_notes`)
+- `integration_constraints`
+- `after_hours_flow_summary`
+- `office_hours_flow_summary`
+- `questions_or_unknowns`
+- `notes`
 
-## How to Run Locally (Python)
+### Retell Agent Draft Spec JSON (v1 and v2)
+Fields:
+- `agent_name`
+- `voice_style`
+- `system_prompt` (includes both business-hours and after-hours flow)
+- `key_variables` (timezone, business hours, address, emergency routing)
+- `tool_invocation_placeholders`
+- `call_transfer_protocol`
+- `fallback_protocol_if_transfer_fails`
+- `version` (`v1`/`v2`)
 
-1. Install dependencies:
+## Folder Structure
+
+- `scripts/clara_pipeline.py` shared parser/patch/task logic
+- `scripts/run_demo.py` Pipeline A CLI
+- `scripts/run_onboarding.py` Pipeline B CLI
+- `scripts/run_all.py` batch CLI (A then B)
+- `run_demo.py`, `run_onboarding.py` root wrappers
+- `schemas.py` shared schema constructors + validators
+- `workflows/n8n_clara_pipeline.json` n8n export
+- `workflows/local_file_pipeline.json` mocked orchestrator export
+- `outputs/accounts/<account_id>/v1|v2/...` artifacts
+- `outputs/tasks.json` free local task tracker
+
+## Local Setup
 
 ```bash
 pip install -r requirements.txt
 ```
 
-2. Run all pipelines in batch mode:
+## Batch Commands
+
+Run exactly with required CLI style:
 
 ```bash
-python scripts/run_all.py
+python run_demo.py --input inputs/demo --output outputs/accounts
+python run_onboarding.py --input inputs/onboarding --output outputs/accounts
 ```
 
-3. Optional split runs:
+Optional full run:
 
 ```bash
-python scripts/run_demo.py
-python scripts/run_onboarding.py
+python scripts/run_all.py --demo-input inputs/demo --onboarding-input inputs/onboarding --output outputs/accounts
 ```
 
-4. Validate outputs:
+Force rebuild:
 
 ```bash
-python validate_assignment.py
+python run_demo.py --input inputs/demo --output outputs/accounts --force
+python run_onboarding.py --input inputs/onboarding --output outputs/accounts --force
 ```
 
-## How to Run with n8n (Docker)
+## n8n Orchestration (Docker, zero-cost local)
 
-1. Copy env template:
-
-```bash
-cp .env.example .env
-```
-
+1. Copy env file:
+   ```bash
+   cp .env.example .env
+   ```
 2. Start n8n:
+   ```bash
+   docker compose up -d --build
+   ```
+3. Open `http://localhost:5678`.
+4. Import `workflows/n8n_clara_pipeline.json`.
+5. Run workflow manually.
 
-```bash
-docker compose up -d --build
-```
-
-3. Open n8n: `http://localhost:5678`
-4. Import workflow JSON: `workflows/n8n_clara_pipeline.json`
-5. Execute from Manual Trigger
-
-The workflow runs `python3 scripts/run_all.py` against this mounted repository (`/workspace`).
+Workflow topology:
+- `Manual Trigger` -> `Execute Command`
+- command: `cd /workspace && python3 scripts/run_all.py`
 
 ## Environment Variables
 
 - `GITHUB_REPO` (example: `Prathyusha2909/clara-automation`)
 - `GITHUB_TOKEN` (optional)
-  - If provided: creates/reuses one GitHub Issue per account
-  - If missing: task tracker is mocked locally (`mocked: true` in task.json)
-- `N8N_BASIC_AUTH_ACTIVE`, `N8N_BASIC_AUTH_USER`, `N8N_BASIC_AUTH_PASSWORD` (for n8n)
+  - set: create/reuse GitHub Issue per account
+  - unset: local mocked task record is used (`mocked: true`)
+- n8n auth env vars from `.env.example`
 
-## Dataset Plug-in
+## Dataset Placement
 
-Add transcript files as:
-- `inputs/demo/<account_id>.txt`
-- `inputs/onboarding/<account_id>.txt`
+- Demo transcripts: `inputs/demo/<account_id>.txt`
+- Onboarding updates:
+  - `inputs/onboarding/<account_id>.txt`
+  - or `inputs/onboarding/<account_id>.json`
 
-The pipeline derives `account_id` from the filename stem.
-
-## Outputs
+## Output Locations
 
 Per account:
 - `outputs/accounts/<account_id>/v1/memo.json`
 - `outputs/accounts/<account_id>/v1/agent_spec.json`
 - `outputs/accounts/<account_id>/v2/memo.json`
 - `outputs/accounts/<account_id>/v2/agent_spec.json`
-- `outputs/accounts/<account_id>/changes.json`
+- `outputs/accounts/<account_id>/v2/changes.json`
 - `outputs/accounts/<account_id>/task.json`
 
 Global:
-- `outputs/task_tracker/items.json`
+- `outputs/tasks.json`
 
-## Retell Setup and Manual Import
+## Retell Setup + Manual Import Steps
 
-This project generates "Retell Agent Draft Spec JSON" (`agent_spec.json`).
+This repo outputs Retell-ready draft specs in each `agent_spec.json`.
 
-If Retell API automation is unavailable on free tier:
-1. Open Retell UI and create/update an agent manually.
-2. Copy from account `agent_spec.json`:
+Manual import flow:
+1. Open Retell and create/select an agent.
+2. Copy fields from `agent_spec.json`:
    - `agent_name`
    - `voice_style`
    - `system_prompt`
-   - transfer/fallback protocol sections
-3. Apply business-hours and emergency-routing variables from `key_variables`.
-4. Keep tool placeholders internal; do not surface tool-call language to callers.
+   - `call_transfer_protocol`
+   - `fallback_protocol_if_transfer_fails`
+3. Configure variables from `key_variables`.
+4. Keep `tool_invocation_placeholders` internal only (not spoken to callers).
 
 ## Known Limitations
 
-- Extraction is deterministic regex/rule-based and optimized for assignment-style transcripts.
-- Issue reuse checks first 100 issues in repository for matching tracker title.
-- No paid external services are used.
+- Parsing is regex/rule-based and tuned for assignment transcript patterns.
+- GitHub Issue reuse checks first 100 issues by title.
+- No auto-correction of ambiguous source statements; ambiguity is surfaced via `questions_or_unknowns`.
 
 ## Future Improvements
 
-- Add richer NLP parsing for broader transcript patterns.
-- Add stronger conflict-resolution policy engine and human-approval queue.
-- Add dashboard/UI for diff viewing across v1/v2.
+1. Add richer parser coverage for varied transcript phrasing.
+2. Add stricter conflict evidence capture in changelog.
+3. Add CI check to enforce schema and idempotency on every push.

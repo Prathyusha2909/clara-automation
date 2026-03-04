@@ -18,7 +18,8 @@
                 "outputs/accounts/<account_id>/task.json",
                 "outputs/accounts/<account_id>/v2/memo.json",
                 "outputs/accounts/<account_id>/v2/agent_spec.json",
-                "outputs/accounts/<account_id>/changes.json"
+                "outputs/accounts/<account_id>/v2/changes.json",
+                "outputs/tasks.json"
             ]
         },
         {

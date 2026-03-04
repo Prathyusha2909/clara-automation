@@ -12,14 +12,23 @@ def parse_args() -> argparse.Namespace:
         description="Run Pipeline A: demo transcript -> v1 memo + agent spec."
     )
     parser.add_argument(
+        "--input",
         "--demo-dir",
+        dest="input_dir",
         default="inputs/demo",
         help="Directory containing demo transcript .txt files.",
     )
     parser.add_argument(
+        "--output",
         "--accounts-root",
+        dest="output_dir",
         default="outputs/accounts",
         help="Directory where per-account outputs are stored.",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Rebuild v1 outputs even if they already exist.",
     )
     parser.add_argument(
         "--log-level",
@@ -33,8 +42,9 @@ def main() -> None:
     args = parse_args()
     configure_logging(args.log_level)
     run_pipeline_a(
-        demo_dir=Path(args.demo_dir),
-        accounts_root=Path(args.accounts_root),
+        demo_dir=Path(args.input_dir),
+        accounts_root=Path(args.output_dir),
+        force=args.force,
     )
 
 

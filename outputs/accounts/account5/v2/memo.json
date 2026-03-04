@@ -1,46 +1,57 @@
 {
-    "account_id": "account5",
-    "company_name": "ABC Fire Protection",
-    "business_hours": {
-        "days": "Monday-Friday",
-        "start": "07:00",
-        "end": "17:00",
-        "timezone": "EST"
-    },
-    "office_address": "",
-    "services_supported": [],
-    "emergency_definition": [
-        "sprinkler leaks",
-        "fire alarm triggered"
+  "account_id": "account5",
+  "company_name": "ABC Fire Protection",
+  "business_hours": {
+    "days": [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday"
     ],
-    "emergency_routing_rules": {
-        "who_to_call": [
-            "dispatch"
-        ],
-        "order": [
-            "dispatch"
-        ],
-        "fallback": ""
-    },
-    "non_emergency_routing_rules": {
-        "office_hours": "",
-        "after_hours": ""
-    },
-    "call_transfer_rules": {
-        "timeout_seconds": 60,
-        "retries": null,
-        "what_to_say_if_transfer_fails": ""
-    },
-    "integration_constraints": [],
-    "after_hours_flow_summary": "After-hours emergency calls should transfer to dispatch. If transfer fails, fallback behavior must follow configured protocol.",
-    "office_hours_flow_summary": "Office hours identified as Monday-Friday 07:00-17:00 EST. Detailed office-hours routing steps were not explicitly stated.",
-    "questions_or_unknowns": [
-        "What is the office address?",
-        "Which services are supported by the voice agent?",
-        "What are the non-emergency routing rules during and after office hours?",
-        "How many transfer retries should be attempted?",
-        "What should Clara say when transfer fails?",
-        "Are there integration constraints (for example, systems Clara must avoid updating)?"
+    "start": "07:00",
+    "end": "17:00",
+    "timezone": "EST"
+  },
+  "office_address": "",
+  "services_supported": [],
+  "emergency_definition": [
+    "sprinkler leaks",
+    "fire alarm triggered"
+  ],
+  "emergency_routing_rules": {
+    "contacts": [
+      {
+        "name": "",
+        "role": "dispatch",
+        "phone": "",
+        "priority_order": 1
+      }
     ],
-    "notes": "v2 generated from onboarding transcript patch."
+    "fallback": "",
+    "notes": "After hours emergency calls should transfer to dispatch."
+  },
+  "non_emergency_routing_rules": {
+    "contacts": [],
+    "notes": ""
+  },
+  "call_transfer_rules": {
+    "timeout_seconds": 60,
+    "retries": null,
+    "fail_message": "",
+    "routing_notes": "After hours emergency calls should transfer to dispatch."
+  },
+  "integration_constraints": [],
+  "after_hours_flow_summary": "After hours emergency calls should transfer to dispatch.",
+  "office_hours_flow_summary": "Our updated business hours are Monday to Friday 7am to 5pm EST.",
+  "questions_or_unknowns": [
+    "Please provide office_address.",
+    "Please provide services_supported.",
+    "Please provide emergency_routing_rules.fallback.",
+    "Please provide non_emergency_routing_rules.",
+    "Please provide call_transfer_rules.retries.",
+    "Please provide call_transfer_rules.fail_message.",
+    "Please provide integration_constraints."
+  ],
+  "notes": "Updated from onboarding input."
 }

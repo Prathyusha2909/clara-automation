@@ -1,0 +1,99 @@
+{
+  "items": [
+    {
+      "account_id": "account1",
+      "status": "completed",
+      "task_file": "outputs/accounts/account1/task.json",
+      "tracker": {
+        "type": "github_issues",
+        "mocked": true,
+        "repository": "",
+        "title": "Clara Automation Task - account1",
+        "issue_number": null,
+        "issue_url": "",
+        "note": "GITHUB_REPO or GITHUB_TOKEN missing. Local mocked task record used."
+      },
+      "v1_memo": "outputs/accounts/account1/v1/memo.json",
+      "v1_agent_spec": "outputs/accounts/account1/v1/agent_spec.json",
+      "v2_memo": "outputs/accounts/account1/v2/memo.json",
+      "v2_agent_spec": "outputs/accounts/account1/v2/agent_spec.json",
+      "v2_changes": "outputs/accounts/account1/v2/changes.json"
+    },
+    {
+      "account_id": "account2",
+      "status": "completed",
+      "task_file": "outputs/accounts/account2/task.json",
+      "tracker": {
+        "type": "github_issues",
+        "mocked": true,
+        "repository": "",
+        "title": "Clara Automation Task - account2",
+        "issue_number": null,
+        "issue_url": "",
+        "note": "GITHUB_REPO or GITHUB_TOKEN missing. Local mocked task record used."
+      },
+      "v1_memo": "outputs/accounts/account2/v1/memo.json",
+      "v1_agent_spec": "outputs/accounts/account2/v1/agent_spec.json",
+      "v2_memo": "outputs/accounts/account2/v2/memo.json",
+      "v2_agent_spec": "outputs/accounts/account2/v2/agent_spec.json",
+      "v2_changes": "outputs/accounts/account2/v2/changes.json"
+    },
+    {
+      "account_id": "account3",
+      "status": "completed",
+      "task_file": "outputs/accounts/account3/task.json",
+      "tracker": {
+        "type": "github_issues",
+        "mocked": true,
+        "repository": "",
+        "title": "Clara Automation Task - account3",
+        "issue_number": null,
+        "issue_url": "",
+        "note": "GITHUB_REPO or GITHUB_TOKEN missing. Local mocked task record used."
+      },
+      "v1_memo": "outputs/accounts/account3/v1/memo.json",
+      "v1_agent_spec": "outputs/accounts/account3/v1/agent_spec.json",
+      "v2_memo": "outputs/accounts/account3/v2/memo.json",
+      "v2_agent_spec": "outputs/accounts/account3/v2/agent_spec.json",
+      "v2_changes": "outputs/accounts/account3/v2/changes.json"
+    },
+    {
+      "account_id": "account4",
+      "status": "completed",
+      "task_file": "outputs/accounts/account4/task.json",
+      "tracker": {
+        "type": "github_issues",
+        "mocked": true,
+        "repository": "",
+        "title": "Clara Automation Task - account4",
+        "issue_number": null,
+        "issue_url": "",
+        "note": "GITHUB_REPO or GITHUB_TOKEN missing. Local mocked task record used."
+      },
+      "v1_memo": "outputs/accounts/account4/v1/memo.json",
+      "v1_agent_spec": "outputs/accounts/account4/v1/agent_spec.json",
+      "v2_memo": "outputs/accounts/account4/v2/memo.json",
+      "v2_agent_spec": "outputs/accounts/account4/v2/agent_spec.json",
+      "v2_changes": "outputs/accounts/account4/v2/changes.json"
+    },
+    {
+      "account_id": "account5",
+      "status": "completed",
+      "task_file": "outputs/accounts/account5/task.json",
+      "tracker": {
+        "type": "github_issues",
+        "mocked": true,
+        "repository": "",
+        "title": "Clara Automation Task - account5",
+        "issue_number": null,
+        "issue_url": "",
+        "note": "GITHUB_REPO or GITHUB_TOKEN missing. Local mocked task record used."
+      },
+      "v1_memo": "outputs/accounts/account5/v1/memo.json",
+      "v1_agent_spec": "outputs/accounts/account5/v1/agent_spec.json",
+      "v2_memo": "outputs/accounts/account5/v2/memo.json",
+      "v2_agent_spec": "outputs/accounts/account5/v2/agent_spec.json",
+      "v2_changes": "outputs/accounts/account5/v2/changes.json"
+    }
+  ]
+}

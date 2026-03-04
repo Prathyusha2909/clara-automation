@@ -1,29 +1,26 @@
 {
-    "account_id": "account2",
-    "tracker": {
-        "provider": "github_issues",
-        "repository": "",
-        "mocked": true,
-        "title": "[Clara Automation] account2 task tracker",
-        "issue_number": null,
-        "issue_url": "",
-        "note": "GITHUB_TOKEN or GITHUB_REPO missing; task tracking mocked locally."
+  "account_id": "account2",
+  "tracker": {
+    "type": "github_issues",
+    "mocked": true,
+    "repository": "",
+    "title": "Clara Automation Task - account2",
+    "issue_number": null,
+    "issue_url": "",
+    "note": "GITHUB_REPO or GITHUB_TOKEN missing. Local mocked task record used."
+  },
+  "stages": {
+    "pipeline_a_v1": {
+      "status": "completed",
+      "memo_path": "outputs/accounts/account2/v1/memo.json",
+      "agent_spec_path": "outputs/accounts/account2/v1/agent_spec.json"
     },
-    "stages": {
-        "pipeline_a_v1": {
-            "status": "completed",
-            "artifacts": [
-                "outputs\\accounts\\account2\\v1\\agent_spec.json",
-                "outputs\\accounts\\account2\\v1\\memo.json"
-            ]
-        },
-        "pipeline_b_v2": {
-            "status": "completed",
-            "artifacts": [
-                "outputs\\accounts\\account2\\changes.json",
-                "outputs\\accounts\\account2\\v2\\agent_spec.json",
-                "outputs\\accounts\\account2\\v2\\memo.json"
-            ]
-        }
+    "pipeline_b_v2": {
+      "status": "completed",
+      "memo_path": "outputs/accounts/account2/v2/memo.json",
+      "agent_spec_path": "outputs/accounts/account2/v2/agent_spec.json",
+      "changes_path": "outputs/accounts/account2/v2/changes.json"
     }
+  },
+  "status": "completed"
 }

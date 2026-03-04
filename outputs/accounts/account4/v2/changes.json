@@ -1,0 +1,45 @@
+[
+  {
+    "field": "business_hours",
+    "old_value": {
+      "days": [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday"
+      ],
+      "start": "08:00",
+      "end": "16:00",
+      "timezone": "EST"
+    },
+    "new_value": {
+      "days": [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday"
+      ],
+      "start": "07:00",
+      "end": "17:00",
+      "timezone": "EST"
+    },
+    "source": "onboarding",
+    "rationale": "Updated from onboarding input."
+  },
+  {
+    "field": "call_transfer_rules.timeout_seconds",
+    "old_value": null,
+    "new_value": 60,
+    "source": "onboarding",
+    "rationale": "Updated from onboarding input."
+  },
+  {
+    "field": "office_hours_flow_summary",
+    "old_value": "We operate Monday to Friday 8am to 4pm EST.",
+    "new_value": "Our updated business hours are Monday to Friday 7am to 5pm EST.",
+    "source": "onboarding",
+    "rationale": "Updated from onboarding input."
+  }
+]
