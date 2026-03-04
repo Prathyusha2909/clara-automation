@@ -1,13 +1,15 @@
 # Scripts
 
-This folder contains wrapper entrypoints so the repository includes a `/scripts` directory for assignment submission checks.
+Primary CLI entrypoints:
 
-- `run_demo.py` -> runs the demo-to-v1 pipeline
-- `run_onboarding.py` -> runs onboarding updates to produce v2 + changelog
+- `run_all.py`: runs Pipeline A then Pipeline B in batch mode.
+- `run_demo.py`: runs only Pipeline A (demo -> v1).
+- `run_onboarding.py`: runs only Pipeline B (onboarding -> v2).
 
-You can run either from repository root:
+Examples:
 
 ```bash
-python scripts/run_demo.py
-python scripts/run_onboarding.py
+python scripts/run_all.py
+python scripts/run_demo.py --demo-dir inputs/demo
+python scripts/run_onboarding.py --onboarding-dir inputs/onboarding
 ```

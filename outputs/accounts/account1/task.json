@@ -1,28 +1,29 @@
 {
     "account_id": "account1",
-    "items": [
-        {
-            "task_id": "account1:demo_v1_generation",
-            "account_id": "account1",
-            "stage": "demo_v1_generation",
+    "tracker": {
+        "provider": "github_issues",
+        "repository": "",
+        "mocked": true,
+        "title": "[Clara Automation] account1 task tracker",
+        "issue_number": null,
+        "issue_url": "",
+        "note": "GITHUB_TOKEN or GITHUB_REPO missing; task tracking mocked locally."
+    },
+    "stages": {
+        "pipeline_a_v1": {
             "status": "completed",
             "artifacts": [
-                "outputs\\accounts\\account1\\v1\\memo.json",
-                "outputs\\accounts\\account1\\v1\\agent_spec.json"
-            ],
-            "summary": "Generated preliminary memo and agent spec from demo transcript."
+                "outputs\\accounts\\account1\\v1\\agent_spec.json",
+                "outputs\\accounts\\account1\\v1\\memo.json"
+            ]
         },
-        {
-            "task_id": "account1:onboarding_v2_update",
-            "account_id": "account1",
-            "stage": "onboarding_v2_update",
+        "pipeline_b_v2": {
             "status": "completed",
             "artifacts": [
-                "outputs\\accounts\\account1\\v2\\memo.json",
+                "outputs\\accounts\\account1\\changes.json",
                 "outputs\\accounts\\account1\\v2\\agent_spec.json",
-                "outputs\\accounts\\account1\\changes.json"
-            ],
-            "summary": "Applied onboarding updates and produced v2 memo/spec with changelog."
+                "outputs\\accounts\\account1\\v2\\memo.json"
+            ]
         }
-    ]
+    }
 }

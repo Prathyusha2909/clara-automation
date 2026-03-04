@@ -1,47 +1,78 @@
-# Clara AI Automation
+# Clara AI Assignment - Automation Pipeline
 
-## What This Project Does
+This repository implements a zero-cost, reproducible Clara onboarding automation pipeline.
 
-This repository implements a zero-cost, reproducible pipeline for the Clara assignment:
+## Architecture and Data Flow
 
-1. Demo transcript -> `v1` account memo + agent spec
-2. Onboarding transcript -> `v2` updated memo + agent spec
-3. Per-account changelog (`v1 -> v2`)
-4. Local task-tracker items for workflow visibility
-5. n8n workflow export and local n8n setup
+### Pipeline A (Demo -> v1)
+1. Read demo transcript from `inputs/demo/<account_id>.txt`
+2. Extract structured account memo fields (rule-based parsing, no paid LLMs)
+3. Generate:
+   - `outputs/accounts/<account_id>/v1/memo.json`
+   - `outputs/accounts/<account_id>/v1/agent_spec.json`
+4. Create/reuse task tracker issue (GitHub Issues) or mock locally
+5. Persist account task metadata:
+   - `outputs/accounts/<account_id>/task.json`
 
-## Repository Layout
+### Pipeline B (Onboarding -> v2 patch)
+1. Read onboarding transcript from `inputs/onboarding/<account_id>.txt`
+2. Load v1 memo
+3. Extract explicit updates (business hours, transfer timeout, routing, constraints)
+4. Apply patch safely without overwriting unrelated fields
+5. Handle conflicts by keeping v1 value unless explicit override is clear
+6. Generate:
+   - `outputs/accounts/<account_id>/v2/memo.json`
+   - `outputs/accounts/<account_id>/v2/agent_spec.json`
+   - `outputs/accounts/<account_id>/changes.json`
 
-- `inputs/demo/` and `inputs/onboarding/`: source transcripts
-- `outputs/accounts/<account_id>/v1/`: demo-derived artifacts
-- `outputs/accounts/<account_id>/v2/`: onboarding-updated artifacts
-- `outputs/accounts/<account_id>/changes.json`: field-level update log
-- `outputs/accounts/<account_id>/task.json`: per-account task tracker entries
-- `outputs/task_tracker/items.json`: local free task-tracker records
-- `scripts/`: wrapper entrypoints used by n8n execute-command nodes
-- `workflows/n8n_clara_pipeline.json`: importable n8n workflow JSON
-- `run_demo.py`, `run_onboarding.py`, `pipeline_utils.py`: core pipeline code
-- `validate_assignment.py`: compliance and integrity checks
+### Orchestration
+- n8n workflow export: `workflows/n8n_clara_pipeline.json`
+- n8n command node runs: `python3 scripts/run_all.py`
 
-## Prerequisites
+## Repository Structure
 
-- Python 3.10+
-- Docker Desktop (optional but recommended for n8n)
-- Node.js (optional fallback to run n8n via `npx`)
+- `inputs/demo/`, `inputs/onboarding/`: input transcripts
+- `scripts/`
+  - `run_all.py` (primary CLI entrypoint)
+  - `run_demo.py` (Pipeline A only)
+  - `run_onboarding.py` (Pipeline B only)
+  - `clara_pipeline.py` (shared schema + parsing + patch logic + tracker logic)
+- `workflows/n8n_clara_pipeline.json`: n8n export (Manual Trigger -> Execute Command)
+- `outputs/accounts/<account_id>/...`: generated account artifacts
+- `outputs/task_tracker/items.json`: global task tracker snapshot
+- `docker-compose.yml`, `Dockerfile.n8n`: local n8n runtime
+- `validate_assignment.py`: compliance validator
 
-## Run the Pipeline (CLI)
+## How to Run Locally (Python)
+
+1. Install dependencies:
 
 ```bash
-python run_demo.py
-python run_onboarding.py
+pip install -r requirements.txt
+```
+
+2. Run all pipelines in batch mode:
+
+```bash
+python scripts/run_all.py
+```
+
+3. Optional split runs:
+
+```bash
+python scripts/run_demo.py
+python scripts/run_onboarding.py
+```
+
+4. Validate outputs:
+
+```bash
 python validate_assignment.py
 ```
 
-## Run with n8n
+## How to Run with n8n (Docker)
 
-### Option A: Docker (recommended)
-
-1. Create env file:
+1. Copy env template:
 
 ```bash
 cp .env.example .env
@@ -54,79 +85,62 @@ docker compose up -d --build
 ```
 
 3. Open n8n: `http://localhost:5678`
+4. Import workflow JSON: `workflows/n8n_clara_pipeline.json`
+5. Execute from Manual Trigger
 
-4. Import workflow file:
-`workflows/n8n_clara_pipeline.json`
+The workflow runs `python3 scripts/run_all.py` against this mounted repository (`/workspace`).
 
-5. Execute workflow from the Manual Trigger node.
+## Environment Variables
 
-### Option B: Local fallback (if Docker daemon is unavailable)
+- `GITHUB_REPO` (example: `Prathyusha2909/clara-automation`)
+- `GITHUB_TOKEN` (optional)
+  - If provided: creates/reuses one GitHub Issue per account
+  - If missing: task tracker is mocked locally (`mocked: true` in task.json)
+- `N8N_BASIC_AUTH_ACTIVE`, `N8N_BASIC_AUTH_USER`, `N8N_BASIC_AUTH_PASSWORD` (for n8n)
 
-```bash
-npx --yes n8n start --host 127.0.0.1 --port 5678
-```
+## Dataset Plug-in
 
-Then import and run the same workflow JSON from the UI.
+Add transcript files as:
+- `inputs/demo/<account_id>.txt`
+- `inputs/onboarding/<account_id>.txt`
 
-## n8n Workflow Steps
+The pipeline derives `account_id` from the filename stem.
 
-The workflow runs these commands in sequence:
+## Outputs
 
-1. `python scripts/run_demo.py`
-2. `python scripts/run_onboarding.py`
-3. `python validate_assignment.py`
-
-When using Docker, the repository is mounted at `/workspace`.
-
-## Output Contract
-
-For each account:
-
-- `v1/memo.json`
-- `v1/agent_spec.json`
-- `v2/memo.json`
-- `v2/agent_spec.json`
-- `changes.json`
-
-Global tracking:
-
+Per account:
+- `outputs/accounts/<account_id>/v1/memo.json`
+- `outputs/accounts/<account_id>/v1/agent_spec.json`
+- `outputs/accounts/<account_id>/v2/memo.json`
+- `outputs/accounts/<account_id>/v2/agent_spec.json`
+- `outputs/accounts/<account_id>/changes.json`
 - `outputs/accounts/<account_id>/task.json`
+
+Global:
 - `outputs/task_tracker/items.json`
 
-## Assignment Coverage
+## Retell Setup and Manual Import
 
-Implemented:
-
-- Batch processing over 5 demo + 5 onboarding files
-- Deterministic extraction/update flow (no paid APIs)
-- Structured memo fields and prompt hygiene
-- Versioning (`v1` and `v2`) with explicit change logging
-- n8n workflow export and local setup instructions
-- Validation script for reproducibility checks
-
-Not part of codebase:
-
-- Loom walkthrough video (submission artifact)
-- Paid or external PM integrations
-  - Current zero-cost fallback: local task tracker JSON
-
-## Loom (Submission Step)
-
-Record a 3–5 minute Loom showing:
-
-1. One demo transcript run creating `v1`
-2. One onboarding run updating to `v2`
-3. The generated `changes.json` and `task.json`
-
-Add your Loom URL to this section before final submission.
-
-## Retell Free-Tier Path
+This project generates "Retell Agent Draft Spec JSON" (`agent_spec.json`).
 
 If Retell API automation is unavailable on free tier:
+1. Open Retell UI and create/update an agent manually.
+2. Copy from account `agent_spec.json`:
+   - `agent_name`
+   - `voice_style`
+   - `system_prompt`
+   - transfer/fallback protocol sections
+3. Apply business-hours and emergency-routing variables from `key_variables`.
+4. Keep tool placeholders internal; do not surface tool-call language to callers.
 
-1. Create/update agent manually in Retell UI.
-2. Copy values from `outputs/accounts/<account_id>/v1/agent_spec.json` or `v2`.
-3. Paste `system_prompt`.
-4. Configure transfer and fallback behavior from:
-   - `call_transfer_protocol`
-   - `fallback_protocol`
+## Known Limitations
+
+- Extraction is deterministic regex/rule-based and optimized for assignment-style transcripts.
+- Issue reuse checks first 100 issues in repository for matching tracker title.
+- No paid external services are used.
+
+## Future Improvements
+
+- Add richer NLP parsing for broader transcript patterns.
+- Add stronger conflict-resolution policy engine and human-approval queue.
+- Add dashboard/UI for diff viewing across v1/v2.

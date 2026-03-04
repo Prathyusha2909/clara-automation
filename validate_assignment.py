@@ -1,6 +1,8 @@
 import json
 import os
 import sys
+from pathlib import Path
+from typing import Any, Dict, List
 
 
 REQUIRED_MEMO_FIELDS = [
@@ -27,185 +29,169 @@ REQUIRED_AGENT_FIELDS = [
     "key_variables",
     "tool_invocation_placeholders",
     "call_transfer_protocol",
-    "fallback_protocol",
+    "fallback_protocol_if_transfer_fails",
     "version",
 ]
 
-REQUIRED_HOURS_KEYS = ["days", "start", "end", "timezone"]
-REQUIRED_REPO_FILES = [
-    os.path.join("workflows", "n8n_clara_pipeline.json"),
-    "docker-compose.yml",
-    "Dockerfile.n8n",
+REQUIRED_HOUR_KEYS = ["days", "start", "end", "timezone"]
+REQUIRED_TRANSFER_KEYS = ["timeout_seconds", "retries", "what_to_say_if_transfer_fails"]
+REQUIRED_CHANGE_KEYS = [
+    "field_path",
+    "old_value",
+    "new_value",
+    "reason",
+    "evidence_snippet",
 ]
 
 
-def _load_json(path):
-    with open(path, "r", encoding="utf-8") as handle:
-        return json.load(handle)
+def _read_json(path: Path) -> Any:
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _validate_memo(path, label, errors):
-    memo = _load_json(path)
-    missing = [field for field in REQUIRED_MEMO_FIELDS if field not in memo]
-    if missing:
-        errors.append(f"{label}: memo missing fields {missing}")
-        return memo
+def _is_memo_valid(memo: Dict[str, Any], label: str, errors: List[str]) -> None:
+    for field in REQUIRED_MEMO_FIELDS:
+        if field not in memo:
+            errors.append(f"{label}: missing memo field '{field}'")
 
     hours = memo.get("business_hours")
     if not isinstance(hours, dict):
         errors.append(f"{label}: business_hours must be an object")
     else:
-        missing_hours = [key for key in REQUIRED_HOURS_KEYS if key not in hours]
-        if missing_hours:
-            errors.append(f"{label}: business_hours missing keys {missing_hours}")
+        for key in REQUIRED_HOUR_KEYS:
+            if key not in hours:
+                errors.append(f"{label}: business_hours missing key '{key}'")
 
+    emergency_routing = memo.get("emergency_routing_rules")
+    if not isinstance(emergency_routing, dict):
+        errors.append(f"{label}: emergency_routing_rules must be an object")
+    else:
+        for key in ["who_to_call", "order", "fallback"]:
+            if key not in emergency_routing:
+                errors.append(f"{label}: emergency_routing_rules missing key '{key}'")
+
+    transfer = memo.get("call_transfer_rules")
+    if not isinstance(transfer, dict):
+        errors.append(f"{label}: call_transfer_rules must be an object")
+    else:
+        for key in REQUIRED_TRANSFER_KEYS:
+            if key not in transfer:
+                errors.append(f"{label}: call_transfer_rules missing key '{key}'")
+
+    if not isinstance(memo.get("services_supported"), list):
+        errors.append(f"{label}: services_supported must be a list")
+    if not isinstance(memo.get("emergency_definition"), list):
+        errors.append(f"{label}: emergency_definition must be a list")
     if not isinstance(memo.get("questions_or_unknowns"), list):
         errors.append(f"{label}: questions_or_unknowns must be a list")
 
-    return memo
+
+def _is_agent_valid(spec: Dict[str, Any], label: str, version: str, errors: List[str]) -> None:
+    for field in REQUIRED_AGENT_FIELDS:
+        if field not in spec:
+            errors.append(f"{label}: missing agent_spec field '{field}'")
+    if spec.get("version") != version:
+        errors.append(f"{label}: expected version {version}, found {spec.get('version')}")
+    if "Do not mention internal tools" not in spec.get("system_prompt", ""):
+        errors.append(f"{label}: system_prompt missing tool-disclosure guardrail")
 
 
-def _validate_agent(path, label, expected_version, errors):
-    spec = _load_json(path)
-    missing = [field for field in REQUIRED_AGENT_FIELDS if field not in spec]
-    if missing:
-        errors.append(f"{label}: agent_spec missing fields {missing}")
-    if spec.get("version") != expected_version:
-        errors.append(
-            f"{label}: version expected {expected_version}, found {spec.get('version')}"
-        )
-    if "Never mention internal tools" not in spec.get("system_prompt", ""):
-        errors.append(f"{label}: system_prompt missing no-tool-disclosure guardrail")
-    return spec
-
-
-def _validate_changes(path, label, errors):
-    data = _load_json(path)
-    changes = data.get("changes")
+def _is_changes_valid(changes: Any, label: str, errors: List[str]) -> None:
     if not isinstance(changes, list):
-        errors.append(f"{label}: changes.json must contain a changes list")
-        return []
-    for index, change in enumerate(changes, 1):
-        for key in ["field", "old_value", "new_value", "source", "reason"]:
-            if key not in change:
-                errors.append(f"{label}: change #{index} missing key '{key}'")
-    return changes
-
-
-def _validate_task_tracker(accounts, errors):
-    tracker_path = os.path.join("outputs", "task_tracker", "items.json")
-    if not os.path.exists(tracker_path):
-        errors.append("task tracker missing: outputs/task_tracker/items.json")
+        errors.append(f"{label}: changes.json must be a list")
         return
+    for idx, row in enumerate(changes, start=1):
+        if not isinstance(row, dict):
+            errors.append(f"{label}: change entry #{idx} must be an object")
+            continue
+        for key in REQUIRED_CHANGE_KEYS:
+            if key not in row:
+                errors.append(f"{label}: change entry #{idx} missing key '{key}'")
 
-    payload = _load_json(tracker_path)
-    items = payload.get("items")
-    if not isinstance(items, list):
-        errors.append("task tracker payload must contain a list under 'items'")
+
+def _is_task_valid(task: Dict[str, Any], account_id: str, errors: List[str]) -> None:
+    if task.get("account_id") != account_id:
+        errors.append(f"{account_id}: task.json account_id mismatch")
+    tracker = task.get("tracker")
+    if not isinstance(tracker, dict):
+        errors.append(f"{account_id}: task.json missing tracker object")
+    stages = task.get("stages")
+    if not isinstance(stages, dict):
+        errors.append(f"{account_id}: task.json missing stages object")
         return
-
-    by_task_id = {item.get("task_id"): item for item in items if isinstance(item, dict)}
-    required_stages = ["demo_v1_generation", "onboarding_v2_update"]
-
-    for account in accounts:
-        for stage in required_stages:
-            task_id = f"{account}:{stage}"
-            item = by_task_id.get(task_id)
-            if not item:
-                errors.append(f"task tracker missing item: {task_id}")
-                continue
-            if item.get("status") != "completed":
-                errors.append(f"task tracker item {task_id} must be completed")
-
-    for account in accounts:
-        account_task_path = os.path.join("outputs", "accounts", account, "task.json")
-        if not os.path.exists(account_task_path):
-            errors.append(f"per-account task file missing: {account_task_path}")
+    for stage in ["pipeline_a_v1", "pipeline_b_v2"]:
+        row = stages.get(stage)
+        if not isinstance(row, dict):
+            errors.append(f"{account_id}: task.json missing stage '{stage}'")
             continue
-        payload = _load_json(account_task_path)
-        entries = payload.get("items")
-        if not isinstance(entries, list):
-            errors.append(f"{account_task_path} must include an items list")
-            continue
-        required_task_ids = {
-            f"{account}:demo_v1_generation",
-            f"{account}:onboarding_v2_update",
-        }
-        found = {entry.get("task_id") for entry in entries if isinstance(entry, dict)}
-        missing = sorted(required_task_ids - found)
-        if missing:
-            errors.append(f"{account_task_path} missing task ids: {missing}")
+        if row.get("status") != "completed":
+            errors.append(f"{account_id}: stage '{stage}' must be completed")
 
 
-def main():
-    errors = []
-    for path in REQUIRED_REPO_FILES:
-        if not os.path.exists(path):
-            errors.append(f"required repository file missing: {path}")
+def main() -> None:
+    errors: List[str] = []
+    root = Path(".")
+    required_repo_files = [
+        root / "workflows" / "n8n_clara_pipeline.json",
+        root / "scripts" / "run_all.py",
+        root / "docker-compose.yml",
+        root / "requirements.txt",
+    ]
+    for path in required_repo_files:
+        if not path.exists():
+            errors.append(f"Missing repository requirement: {path}")
 
-    accounts_root = os.path.join("outputs", "accounts")
-    if not os.path.isdir(accounts_root):
-        print("FAIL: outputs/accounts directory does not exist")
+    accounts_root = root / "outputs" / "accounts"
+    if not accounts_root.exists():
+        print("FAIL: outputs/accounts does not exist")
         sys.exit(1)
 
-    accounts = sorted(
-        [
-            name
-            for name in os.listdir(accounts_root)
-            if os.path.isdir(os.path.join(accounts_root, name))
-        ]
-    )
+    accounts = sorted([path for path in accounts_root.iterdir() if path.is_dir()])
     if not accounts:
-        print("FAIL: no account output directories found")
+        print("FAIL: no account folders found")
         sys.exit(1)
 
-    _validate_task_tracker(accounts, errors)
+    for account_dir in accounts:
+        account_id = account_dir.name
+        v1_memo_path = account_dir / "v1" / "memo.json"
+        v2_memo_path = account_dir / "v2" / "memo.json"
+        v1_spec_path = account_dir / "v1" / "agent_spec.json"
+        v2_spec_path = account_dir / "v2" / "agent_spec.json"
+        changes_path = account_dir / "changes.json"
+        task_path = account_dir / "task.json"
 
-    for account in accounts:
-        base = os.path.join(accounts_root, account)
-        v1_memo = os.path.join(base, "v1", "memo.json")
-        v2_memo = os.path.join(base, "v2", "memo.json")
-        v1_spec = os.path.join(base, "v1", "agent_spec.json")
-        v2_spec = os.path.join(base, "v2", "agent_spec.json")
-        changes_path = os.path.join(base, "changes.json")
-
-        for path in [v1_memo, v2_memo, v1_spec, v2_spec, changes_path]:
-            if not os.path.exists(path):
-                errors.append(f"{account}: required file missing: {path}")
+        for path in [v1_memo_path, v2_memo_path, v1_spec_path, v2_spec_path, changes_path, task_path]:
+            if not path.exists():
+                errors.append(f"{account_id}: missing required file {path}")
 
         if errors:
             continue
 
-        old_memo = _validate_memo(v1_memo, f"{account} v1", errors)
-        new_memo = _validate_memo(v2_memo, f"{account} v2", errors)
-        _validate_agent(v1_spec, f"{account} v1", "v1", errors)
-        _validate_agent(v2_spec, f"{account} v2", "v2", errors)
-        changes = _validate_changes(changes_path, f"{account} changes", errors)
+        v1_memo = _read_json(v1_memo_path)
+        v2_memo = _read_json(v2_memo_path)
+        v1_spec = _read_json(v1_spec_path)
+        v2_spec = _read_json(v2_spec_path)
+        changes = _read_json(changes_path)
+        task = _read_json(task_path)
 
-        change_fields = {change.get("field") for change in changes}
-        if old_memo.get("business_hours") != new_memo.get("business_hours"):
-            if "business_hours" not in change_fields:
-                errors.append(f"{account}: business_hours changed but not in changes.json")
+        _is_memo_valid(v1_memo, f"{account_id} v1", errors)
+        _is_memo_valid(v2_memo, f"{account_id} v2", errors)
+        _is_agent_valid(v1_spec, f"{account_id} v1", "v1", errors)
+        _is_agent_valid(v2_spec, f"{account_id} v2", "v2", errors)
+        _is_changes_valid(changes, f"{account_id}", errors)
+        _is_task_valid(task, account_id, errors)
 
-        if old_memo.get("call_transfer_rules") != new_memo.get("call_transfer_rules"):
-            if "call_transfer_rules" not in change_fields:
-                errors.append(
-                    f"{account}: call_transfer_rules changed but not in changes.json"
-                )
-
-        timeout = (
-            new_memo.get("call_transfer_rules", {})
-            .get("emergency_transfer_timeout_seconds")
-        )
-        if timeout != 60:
-            errors.append(
-                f"{account}: expected emergency transfer timeout 60, found {timeout}"
-            )
+    global_tracker = root / "outputs" / "task_tracker" / "items.json"
+    if not global_tracker.exists():
+        errors.append("Missing global task tracker outputs/task_tracker/items.json")
+    else:
+        payload = _read_json(global_tracker)
+        if not isinstance(payload.get("items"), list):
+            errors.append("Global task tracker must include items list")
 
     if errors:
         print("VALIDATION FAILED")
-        for issue in errors:
-            print("-", issue)
+        for error in errors:
+            print(f"- {error}")
         sys.exit(1)
 
     print("VALIDATION PASSED")

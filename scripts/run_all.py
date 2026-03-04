@@ -2,14 +2,19 @@ import argparse
 from pathlib import Path
 
 try:
-    from .clara_pipeline import configure_logging, run_pipeline_b
+    from .clara_pipeline import configure_logging, run_all
 except ImportError:  # pragma: no cover - direct script execution
-    from clara_pipeline import configure_logging, run_pipeline_b
+    from clara_pipeline import configure_logging, run_all
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run Pipeline B: onboarding transcript -> v2 memo + agent spec + changes."
+        description="Run Clara automation pipeline on demo + onboarding transcripts."
+    )
+    parser.add_argument(
+        "--demo-dir",
+        default="inputs/demo",
+        help="Directory containing demo transcript .txt files.",
     )
     parser.add_argument(
         "--onboarding-dir",
@@ -32,7 +37,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     configure_logging(args.log_level)
-    run_pipeline_b(
+    run_all(
+        demo_dir=Path(args.demo_dir),
         onboarding_dir=Path(args.onboarding_dir),
         accounts_root=Path(args.accounts_root),
     )
