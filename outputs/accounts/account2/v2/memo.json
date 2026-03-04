@@ -1,0 +1,19 @@
+{
+    "account_id": "account2",
+    "company_name": "ABC Fire Protection",
+    "business_hours": "Monday-Friday 7am-5pm EST",
+    "office_address": "",
+    "services_supported": [],
+    "emergency_definition": [
+        "sprinkler leak",
+        "fire alarm triggered"
+    ],
+    "emergency_routing_rules": "",
+    "non_emergency_routing_rules": "",
+    "call_transfer_rules": "",
+    "integration_constraints": "",
+    "after_hours_flow_summary": "",
+    "office_hours_flow_summary": "",
+    "questions_or_unknowns": [],
+    "notes": ""
+}

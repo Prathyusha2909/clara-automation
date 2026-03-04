@@ -1,0 +1,16 @@
+{
+    "version": "v2",
+    "changes": [
+        {
+            "field": "business_hours",
+            "old_value": {
+                "days": "Monday-Friday",
+                "start": "08:00",
+                "end": "16:00",
+                "timezone": "EST"
+            },
+            "new_value": "Monday-Friday 7am-5pm EST",
+            "source": "onboarding transcript"
+        }
+    ]
+}
