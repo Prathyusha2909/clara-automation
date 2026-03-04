@@ -26,8 +26,8 @@
           "priority_order": 1
         }
       ],
-      "fallback": "",
-      "notes": "After hours emergency calls should transfer to dispatch."
+      "notes": "After hours emergency calls should transfer to dispatch.",
+      "fallback": ""
     }
   },
   "tool_invocation_placeholders": {

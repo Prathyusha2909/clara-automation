@@ -627,6 +627,200 @@ def build_agent_spec(memo: Dict[str, Any], version: str) -> Dict[str, Any]:
         raise ValueError(f"Invalid {version} agent spec schema for {memo['account_id']}: {errors}")
     return spec
 
+
+def _json_fingerprint(payload: Any) -> str:
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+
+
+def _normalize_string_list(value: Any) -> List[str]:
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, str):
+        return [value.strip()] if value.strip() else []
+    return []
+
+
+def _to_optional_int(value: Any) -> Optional[int]:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        cleaned = value.strip()
+        if cleaned.isdigit():
+            return int(cleaned)
+    return None
+
+
+def _normalize_business_hours(value: Any) -> Dict[str, Any]:
+    business_hours = value if isinstance(value, dict) else {}
+    days_raw = business_hours.get("days", [])
+    if isinstance(days_raw, str):
+        parsed = _parse_days(days_raw)
+        days = parsed if parsed else ([days_raw.strip()] if days_raw.strip() else [])
+    elif isinstance(days_raw, list):
+        days = [str(day).strip() for day in days_raw if str(day).strip()]
+    else:
+        days = []
+
+    return {
+        "days": days,
+        "start": str(business_hours.get("start", "") or "").strip(),
+        "end": str(business_hours.get("end", "") or "").strip(),
+        "timezone": str(business_hours.get("timezone", "") or "").strip(),
+    }
+
+
+def _normalize_routing(value: Any, allow_fallback: bool) -> Dict[str, Any]:
+    if isinstance(value, str):
+        payload: Dict[str, Any] = {"contacts": [], "notes": value.strip()}
+        if allow_fallback:
+            payload["fallback"] = ""
+        return payload
+    payload = value if isinstance(value, dict) else {}
+    result: Dict[str, Any] = {
+        "contacts": _normalize_contact_list(payload.get("contacts")),
+        "notes": str(payload.get("notes", "") or "").strip(),
+    }
+    if allow_fallback:
+        result["fallback"] = str(payload.get("fallback", "") or "").strip()
+    return result
+
+
+def _normalize_transfer_rules(value: Any) -> Dict[str, Any]:
+    if isinstance(value, str):
+        return {
+            "timeout_seconds": None,
+            "retries": None,
+            "fail_message": value.strip(),
+            "routing_notes": "",
+        }
+    payload = value if isinstance(value, dict) else {}
+    return {
+        "timeout_seconds": _to_optional_int(payload.get("timeout_seconds")),
+        "retries": _to_optional_int(payload.get("retries")),
+        "fail_message": str(payload.get("fail_message", "") or "").strip(),
+        "routing_notes": str(payload.get("routing_notes", "") or "").strip(),
+    }
+
+
+def _normalize_and_validate_memo_for_write(account_id: str, memo: Any) -> Tuple[Dict[str, Any], bool]:
+    raw_payload = memo if isinstance(memo, dict) else {}
+    normalized = normalize_memo(account_id, raw_payload)
+
+    normalized["account_id"] = account_id
+    normalized["company_name"] = str(normalized.get("company_name", "") or "").strip()
+    normalized["business_hours"] = _normalize_business_hours(normalized.get("business_hours"))
+    normalized["office_address"] = str(normalized.get("office_address", "") or "").strip()
+    normalized["services_supported"] = _normalize_string_list(normalized.get("services_supported"))
+    normalized["emergency_definition"] = _normalize_string_list(normalized.get("emergency_definition"))
+    normalized["emergency_routing_rules"] = _normalize_routing(
+        normalized.get("emergency_routing_rules"), allow_fallback=True
+    )
+    normalized["non_emergency_routing_rules"] = _normalize_routing(
+        normalized.get("non_emergency_routing_rules"), allow_fallback=False
+    )
+    normalized["call_transfer_rules"] = _normalize_transfer_rules(normalized.get("call_transfer_rules"))
+    normalized["integration_constraints"] = _normalize_string_list(normalized.get("integration_constraints"))
+    normalized["after_hours_flow_summary"] = str(normalized.get("after_hours_flow_summary", "") or "").strip()
+    normalized["office_hours_flow_summary"] = str(normalized.get("office_hours_flow_summary", "") or "").strip()
+    normalized["questions_or_unknowns"] = _normalize_string_list(normalized.get("questions_or_unknowns"))
+    normalized["notes"] = str(normalized.get("notes", "") or "").strip()
+
+    normalized = normalize_memo(account_id, normalized)
+    ok, errors = validate_memo_schema(normalized)
+    if not ok:
+        raise ValueError(f"Schema-invalid memo for {account_id}: {errors}")
+
+    changed = _json_fingerprint(raw_payload) != _json_fingerprint(normalized)
+    return normalized, changed
+
+
+def _normalize_and_validate_agent_spec_for_write(
+    spec: Any, version: str, account_id: str
+) -> Tuple[Dict[str, Any], bool]:
+    raw_payload = spec if isinstance(spec, dict) else {}
+    normalized = empty_agent_spec(version)
+
+    if isinstance(raw_payload, dict):
+        for key, default_value in normalized.items():
+            incoming = raw_payload.get(key)
+            if isinstance(default_value, dict) and isinstance(incoming, dict):
+                merged = copy.deepcopy(default_value)
+                merged.update(incoming)
+                normalized[key] = merged
+            elif incoming is not None:
+                normalized[key] = incoming
+
+    normalized["agent_name"] = str(normalized.get("agent_name", "") or "").strip()
+    normalized["voice_style"] = str(normalized.get("voice_style", "") or "").strip()
+    normalized["system_prompt"] = str(normalized.get("system_prompt", "") or "").strip()
+    normalized["version"] = version
+
+    key_vars = normalized.get("key_variables")
+    if not isinstance(key_vars, dict):
+        key_vars = empty_agent_spec(version)["key_variables"]
+    key_vars["timezone"] = str(key_vars.get("timezone", "") or "").strip()
+    key_vars["business_hours"] = _normalize_business_hours(key_vars.get("business_hours"))
+    key_vars["address"] = str(key_vars.get("address", "") or "").strip()
+    key_vars["emergency_routing"] = _normalize_routing(key_vars.get("emergency_routing"), allow_fallback=True)
+    normalized["key_variables"] = key_vars
+
+    placeholders = normalized.get("tool_invocation_placeholders")
+    if not isinstance(placeholders, dict):
+        placeholders = empty_agent_spec(version)["tool_invocation_placeholders"]
+    normalized["tool_invocation_placeholders"] = {
+        "create_ticket": str(placeholders.get("create_ticket", "") or "").strip(),
+        "notify_dispatch": str(placeholders.get("notify_dispatch", "") or "").strip(),
+        "transfer_call": str(placeholders.get("transfer_call", "") or "").strip(),
+    }
+
+    transfer = normalized.get("call_transfer_protocol")
+    if not isinstance(transfer, dict):
+        transfer = empty_agent_spec(version)["call_transfer_protocol"]
+    steps = transfer.get("steps", [])
+    normalized["call_transfer_protocol"] = {
+        "steps": _normalize_string_list(steps),
+        "timeout_seconds": _to_optional_int(transfer.get("timeout_seconds")),
+        "retries": _to_optional_int(transfer.get("retries")),
+    }
+
+    fallback = normalized.get("fallback_protocol_if_transfer_fails")
+    if not isinstance(fallback, dict):
+        fallback = empty_agent_spec(version)["fallback_protocol_if_transfer_fails"]
+    normalized["fallback_protocol_if_transfer_fails"] = {
+        "exact_caller_message": str(fallback.get("exact_caller_message", "") or "").strip(),
+        "steps": _normalize_string_list(fallback.get("steps", [])),
+    }
+
+    ok, errors = validate_agent_spec_schema(normalized)
+    if not ok:
+        raise ValueError(f"Schema-invalid {version} agent spec for {account_id}: {errors}")
+
+    changed = _json_fingerprint(raw_payload) != _json_fingerprint(normalized)
+    return normalized, changed
+
+
+def _normalize_changes(changes: Any) -> Tuple[List[Dict[str, Any]], bool]:
+    if not isinstance(changes, list):
+        return [], False
+    normalized: List[Dict[str, Any]] = []
+    valid = True
+    for row in changes:
+        if not isinstance(row, dict):
+            valid = False
+            continue
+        normalized_row = {
+            "field": str(row.get("field", "") or "").strip(),
+            "old_value": row.get("old_value"),
+            "new_value": row.get("new_value"),
+            "source": str(row.get("source", "onboarding") or "onboarding").strip(),
+            "rationale": str(row.get("rationale", "") or "").strip(),
+        }
+        if not normalized_row["field"] or not normalized_row["rationale"]:
+            valid = False
+        normalized.append(normalized_row)
+    return normalized, valid
+
+
 def _get_nested(payload: Dict[str, Any], path: str) -> Any:
     current: Any = payload
     for part in path.split("."):
@@ -1133,14 +1327,38 @@ def run_pipeline_a(
         v1_dir = account_root / "v1"
         memo_path = v1_dir / "memo.json"
         agent_spec_path = v1_dir / "agent_spec.json"
+        transcript = _read_text(demo_file)
 
-        if memo_path.exists() and agent_spec_path.exists() and not force:
-            LOGGER.info("Pipeline A skipped for %s (v1 already exists)", account_id)
-            memo = _read_json(memo_path)
-        else:
-            transcript = _read_text(demo_file)
+        should_rebuild = force or not (memo_path.exists() and agent_spec_path.exists())
+        if not should_rebuild:
+            try:
+                memo, memo_changed = _normalize_and_validate_memo_for_write(account_id, _read_json(memo_path))
+                agent_spec, spec_changed = _normalize_and_validate_agent_spec_for_write(
+                    _read_json(agent_spec_path), version="v1", account_id=account_id
+                )
+                if memo_changed:
+                    _write_json(memo_path, memo)
+                if spec_changed:
+                    _write_json(agent_spec_path, agent_spec)
+                if memo_changed or spec_changed:
+                    LOGGER.info("Pipeline A repaired schema-invalid/legacy v1 outputs for %s", account_id)
+                else:
+                    LOGGER.info("Pipeline A skipped for %s (existing v1 schema valid)", account_id)
+            except Exception as exc:
+                LOGGER.warning(
+                    "Pipeline A existing outputs invalid for %s, rebuilding from transcript: %s",
+                    account_id,
+                    exc,
+                )
+                should_rebuild = True
+
+        if should_rebuild:
             memo = build_v1_memo(account_id, transcript)
+            memo, _ = _normalize_and_validate_memo_for_write(account_id, memo)
             agent_spec = build_agent_spec(memo, version="v1")
+            agent_spec, _ = _normalize_and_validate_agent_spec_for_write(
+                agent_spec, version="v1", account_id=account_id
+            )
             _write_json(memo_path, memo)
             _write_json(agent_spec_path, agent_spec)
             LOGGER.info("Pipeline A completed for %s", account_id)
@@ -1189,19 +1407,51 @@ def run_pipeline_b(
             LOGGER.warning("Pipeline B skipped for %s (missing v1 memo)", account_id)
             continue
 
-        if (
-            v2_memo_path.exists()
-            and v2_agent_spec_path.exists()
-            and changes_path.exists()
-            and not force
-        ):
-            LOGGER.info("Pipeline B skipped for %s (v2 already exists)", account_id)
-            v2_memo = _read_json(v2_memo_path)
-        else:
-            v1_memo = _read_json(v1_memo_path)
+        v1_memo, v1_changed = _normalize_and_validate_memo_for_write(account_id, _read_json(v1_memo_path))
+        if v1_changed:
+            _write_json(v1_memo_path, v1_memo)
+            LOGGER.info("Pipeline B repaired schema-invalid/legacy v1 memo for %s", account_id)
+
+        should_rebuild = force or not (
+            v2_memo_path.exists() and v2_agent_spec_path.exists() and changes_path.exists()
+        )
+
+        if not should_rebuild:
+            try:
+                v2_memo, memo_changed = _normalize_and_validate_memo_for_write(account_id, _read_json(v2_memo_path))
+                v2_agent_spec, spec_changed = _normalize_and_validate_agent_spec_for_write(
+                    _read_json(v2_agent_spec_path), version="v2", account_id=account_id
+                )
+                changes_payload, changes_valid = _normalize_changes(_read_json(changes_path))
+                if not changes_valid:
+                    raise ValueError("Existing changes.json is schema-invalid.")
+                if memo_changed:
+                    _write_json(v2_memo_path, v2_memo)
+                if spec_changed:
+                    _write_json(v2_agent_spec_path, v2_agent_spec)
+                if _json_fingerprint(_read_json(changes_path)) != _json_fingerprint(changes_payload):
+                    _write_json(changes_path, changes_payload)
+                if memo_changed or spec_changed:
+                    LOGGER.info("Pipeline B repaired schema-invalid/legacy v2 outputs for %s", account_id)
+                else:
+                    LOGGER.info("Pipeline B skipped for %s (existing v2 schema valid)", account_id)
+            except Exception as exc:
+                LOGGER.warning(
+                    "Pipeline B existing outputs invalid for %s, rebuilding from onboarding source: %s",
+                    account_id,
+                    exc,
+                )
+                should_rebuild = True
+
+        if should_rebuild:
             onboarding_source = _parse_onboarding_input(onboarding_file)
             v2_memo, changes = apply_onboarding_patch(v1_memo, onboarding_source)
+            v2_memo, _ = _normalize_and_validate_memo_for_write(account_id, v2_memo)
             v2_agent_spec = build_agent_spec(v2_memo, version="v2")
+            v2_agent_spec, _ = _normalize_and_validate_agent_spec_for_write(
+                v2_agent_spec, version="v2", account_id=account_id
+            )
+            changes, _ = _normalize_changes(changes)
 
             _write_json(v2_memo_path, v2_memo)
             _write_json(v2_agent_spec_path, v2_agent_spec)
