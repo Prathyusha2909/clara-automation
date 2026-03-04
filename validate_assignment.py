@@ -117,6 +117,25 @@ def _validate_task_tracker(accounts, errors):
             if item.get("status") != "completed":
                 errors.append(f"task tracker item {task_id} must be completed")
 
+    for account in accounts:
+        account_task_path = os.path.join("outputs", "accounts", account, "task.json")
+        if not os.path.exists(account_task_path):
+            errors.append(f"per-account task file missing: {account_task_path}")
+            continue
+        payload = _load_json(account_task_path)
+        entries = payload.get("items")
+        if not isinstance(entries, list):
+            errors.append(f"{account_task_path} must include an items list")
+            continue
+        required_task_ids = {
+            f"{account}:demo_v1_generation",
+            f"{account}:onboarding_v2_update",
+        }
+        found = {entry.get("task_id") for entry in entries if isinstance(entry, dict)}
+        missing = sorted(required_task_ids - found)
+        if missing:
+            errors.append(f"{account_task_path} missing task ids: {missing}")
+
 
 def main():
     errors = []

@@ -16,6 +16,7 @@ This repository implements a zero-cost, reproducible pipeline for the Clara assi
 - `outputs/accounts/<account_id>/v1/`: demo-derived artifacts
 - `outputs/accounts/<account_id>/v2/`: onboarding-updated artifacts
 - `outputs/accounts/<account_id>/changes.json`: field-level update log
+- `outputs/accounts/<account_id>/task.json`: per-account task tracker entries
 - `outputs/task_tracker/items.json`: local free task-tracker records
 - `scripts/`: wrapper entrypoints used by n8n execute-command nodes
 - `workflows/n8n_clara_pipeline.json`: importable n8n workflow JSON
@@ -89,6 +90,7 @@ For each account:
 
 Global tracking:
 
+- `outputs/accounts/<account_id>/task.json`
 - `outputs/task_tracker/items.json`
 
 ## Assignment Coverage
@@ -107,6 +109,16 @@ Not part of codebase:
 - Loom walkthrough video (submission artifact)
 - Paid or external PM integrations
   - Current zero-cost fallback: local task tracker JSON
+
+## Loom (Submission Step)
+
+Record a 3–5 minute Loom showing:
+
+1. One demo transcript run creating `v1`
+2. One onboarding run updating to `v2`
+3. The generated `changes.json` and `task.json`
+
+Add your Loom URL to this section before final submission.
 
 ## Retell Free-Tier Path
 

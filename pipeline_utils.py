@@ -368,6 +368,27 @@ def update_task_tracker(account_id, stage, status, artifacts, summary):
 
     tracker_payload["items"] = sorted(items, key=lambda item: item.get("task_id", ""))
     write_json(TASK_TRACKER_PATH, tracker_payload)
+    _write_account_task_item(account_id, new_item)
+
+
+def _write_account_task_item(account_id, item):
+    path = os.path.join("outputs", "accounts", account_id, "task.json")
+    payload = _load_json_or_default(path, {"account_id": account_id, "items": []})
+    items = payload.get("items", [])
+
+    replaced = False
+    for index, existing in enumerate(items):
+        if existing.get("task_id") == item.get("task_id"):
+            items[index] = item
+            replaced = True
+            break
+
+    if not replaced:
+        items.append(item)
+
+    payload["account_id"] = account_id
+    payload["items"] = sorted(items, key=lambda entry: entry.get("task_id", ""))
+    write_json(path, payload)
 
 
 def write_json(path, payload):
