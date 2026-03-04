@@ -9,8 +9,29 @@
                 "end": "16:00",
                 "timezone": "EST"
             },
-            "new_value": "Monday-Friday 7am-5pm EST",
-            "source": "onboarding transcript"
+            "new_value": {
+                "days": "Monday-Friday",
+                "start": "07:00",
+                "end": "17:00",
+                "timezone": "EST"
+            },
+            "source": "onboarding transcript",
+            "reason": "Updated hours confirmed during onboarding."
+        },
+        {
+            "field": "call_transfer_rules",
+            "old_value": {
+                "emergency_transfer_timeout_seconds": "",
+                "retry_attempts": 1,
+                "failure_script": "I'm sorry I could not connect you right now. I will alert dispatch immediately and ensure a quick callback."
+            },
+            "new_value": {
+                "emergency_transfer_timeout_seconds": 60,
+                "retry_attempts": 1,
+                "failure_script": "I'm sorry I could not connect you right now. I will alert dispatch immediately and ensure a quick callback."
+            },
+            "source": "onboarding transcript",
+            "reason": "Emergency transfer timeout clarified in onboarding."
         }
     ]
 }

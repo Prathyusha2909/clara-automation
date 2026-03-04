@@ -1,0 +1,100 @@
+{
+    "name": "Clara Automation - Local Python Pipeline",
+    "nodes": [
+        {
+            "parameters": {},
+            "id": "manual-trigger",
+            "name": "Manual Trigger",
+            "type": "n8n-nodes-base.manualTrigger",
+            "typeVersion": 1,
+            "position": [
+                260,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "command": "cd /workspace && python scripts/run_demo.py"
+            },
+            "id": "run-demo",
+            "name": "Run Demo Pipeline",
+            "type": "n8n-nodes-base.executeCommand",
+            "typeVersion": 1,
+            "position": [
+                520,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "command": "cd /workspace && python scripts/run_onboarding.py"
+            },
+            "id": "run-onboarding",
+            "name": "Run Onboarding Pipeline",
+            "type": "n8n-nodes-base.executeCommand",
+            "typeVersion": 1,
+            "position": [
+                780,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "command": "cd /workspace && python validate_assignment.py"
+            },
+            "id": "run-validation",
+            "name": "Validate Outputs",
+            "type": "n8n-nodes-base.executeCommand",
+            "typeVersion": 1,
+            "position": [
+                1040,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Manual Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Run Demo Pipeline",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Run Demo Pipeline": {
+            "main": [
+                [
+                    {
+                        "node": "Run Onboarding Pipeline",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Run Onboarding Pipeline": {
+            "main": [
+                [
+                    {
+                        "node": "Validate Outputs",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "active": false,
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "versionId": "1",
+    "meta": {
+        "instanceId": "clara-local-instance"
+    },
+    "pinData": {},
+    "id": "clara-local-n8n-pipeline"
+}

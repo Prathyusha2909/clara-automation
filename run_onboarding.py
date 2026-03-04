@@ -1,88 +1,61 @@
-import os
 import json
+import os
 
-def generate_agent_spec(memo, version):
-    return {
-        "agent_name": memo["company_name"] + " Voice Agent",
-        "version": version,
-        "business_hours": memo["business_hours"],
-        "emergency_definition": memo["emergency_definition"],
-        "system_prompt": f"""
-You are Clara, the voice assistant for {memo['company_name']}.
+from pipeline_utils import (
+    apply_onboarding_updates,
+    build_change_log,
+    generate_agent_spec,
+    normalize_memo_schema,
+    update_task_tracker,
+    write_json,
+)
 
-BUSINESS HOURS:
-{memo['business_hours']}
 
-BUSINESS HOURS FLOW:
-1. Greet caller
-2. Ask purpose
-3. Collect name and number
-4. Transfer appropriately
-5. If transfer fails, apologize and assure follow-up
-6. Ask if anything else
-7. Close
+def run_onboarding_pipeline():
+    onboarding_folder = "inputs/onboarding"
+    files = sorted([name for name in os.listdir(onboarding_folder) if name.endswith(".txt")])
 
-AFTER HOURS FLOW:
-1. Greet caller
-2. Ask purpose
-3. Confirm if emergency
-4. If emergency, collect name, number, address
-5. Attempt transfer
-6. If transfer fails, assure callback
-7. If non-emergency, collect details
-8. Close
-"""
-    }
+    for file_name in files:
+        account_id = file_name.replace(".txt", "")
+        v1_memo_path = os.path.join("outputs", "accounts", account_id, "v1", "memo.json")
 
-onboarding_folder = "inputs/onboarding"
+        if not os.path.exists(v1_memo_path):
+            print(f"Skipping {account_id}: missing v1 memo at {v1_memo_path}")
+            continue
 
-for file in os.listdir(onboarding_folder):
+        with open(v1_memo_path, "r", encoding="utf-8") as handle:
+            existing_memo = normalize_memo_schema(json.load(handle))
 
-    if file.endswith(".txt"):
+        onboarding_path = os.path.join(onboarding_folder, file_name)
+        with open(onboarding_path, "r", encoding="utf-8") as handle:
+            onboarding_text = handle.read()
 
-        account_id = file.replace(".txt", "")
+        updated_memo, changes = apply_onboarding_updates(existing_memo, onboarding_text)
+        agent_spec = generate_agent_spec(updated_memo, "v2")
 
-        # Load existing v1 memo
-        with open(f"outputs/accounts/{account_id}/v1/memo.json") as f:
-            memo = json.load(f)
-
-        old_business_hours = memo["business_hours"]
-
-        # Read onboarding transcript
-        with open(f"{onboarding_folder}/{file}") as f:
-            onboarding_text = f.read()
-
-        # Update business hours if mentioned
-        if "7am" in onboarding_text and "5pm" in onboarding_text:
-            memo["business_hours"] = "Monday-Friday 7am-5pm EST"
-
-        # Save v2 memo
-        v2_path = f"outputs/accounts/{account_id}/v2"
+        v2_path = os.path.join("outputs", "accounts", account_id, "v2")
         os.makedirs(v2_path, exist_ok=True)
 
-        with open(f"{v2_path}/memo.json", "w") as f:
-            json.dump(memo, f, indent=4)
+        write_json(os.path.join(v2_path, "memo.json"), updated_memo)
+        write_json(os.path.join(v2_path, "agent_spec.json"), agent_spec)
+        write_json(
+            os.path.join("outputs", "accounts", account_id, "changes.json"),
+            build_change_log("v2", changes),
+        )
+        update_task_tracker(
+            account_id=account_id,
+            stage="onboarding_v2_update",
+            status="completed",
+            artifacts=[
+                os.path.join(v2_path, "memo.json"),
+                os.path.join(v2_path, "agent_spec.json"),
+                os.path.join("outputs", "accounts", account_id, "changes.json"),
+            ],
+            summary="Applied onboarding updates and produced v2 memo/spec with changelog.",
+        )
 
-        # Generate agent spec v2
-        agent_spec = generate_agent_spec(memo, "v2")
+        print(f"{account_id} v2 created successfully! ({len(changes)} field updates)")
 
-        with open(f"{v2_path}/agent_spec.json", "w") as f:
-            json.dump(agent_spec, f, indent=4)
 
-        # Save change log
-        changes = {
-            "version": "v2",
-            "changes": [
-                {
-                    "field": "business_hours",
-                    "old_value": old_business_hours,
-                    "new_value": memo["business_hours"],
-                    "source": "onboarding transcript"
-                }
-            ]
-        }
-
-        with open(f"outputs/accounts/{account_id}/changes.json", "w") as f:
-            json.dump(changes, f, indent=4)
-
-        print(f"{account_id} v2 created successfully!")
+if __name__ == "__main__":
+    run_onboarding_pipeline()

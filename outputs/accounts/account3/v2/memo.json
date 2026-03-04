@@ -1,19 +1,39 @@
 {
     "account_id": "account3",
     "company_name": "ABC Fire Protection",
-    "business_hours": "Monday-Friday 7am-5pm EST",
+    "business_hours": {
+        "days": "Monday-Friday",
+        "start": "07:00",
+        "end": "17:00",
+        "timezone": "EST"
+    },
     "office_address": "",
     "services_supported": [],
     "emergency_definition": [
         "sprinkler leak",
         "fire alarm triggered"
     ],
-    "emergency_routing_rules": "",
-    "non_emergency_routing_rules": "",
-    "call_transfer_rules": "",
-    "integration_constraints": "",
-    "after_hours_flow_summary": "",
-    "office_hours_flow_summary": "",
+    "emergency_routing_rules": {
+        "who_to_call": [
+            "dispatch"
+        ],
+        "order": [
+            "dispatch"
+        ],
+        "fallback": "If dispatch transfer fails, collect details and trigger urgent callback."
+    },
+    "non_emergency_routing_rules": {
+        "office_hours": "Transfer to office queue after collecting caller name and number.",
+        "after_hours": "Collect details and schedule callback during business hours."
+    },
+    "call_transfer_rules": {
+        "emergency_transfer_timeout_seconds": 60,
+        "retry_attempts": 1,
+        "failure_script": "I'm sorry I could not connect you right now. I will alert dispatch immediately and ensure a quick callback."
+    },
+    "integration_constraints": [],
+    "after_hours_flow_summary": "After hours, confirm emergency, collect name/number/address for emergencies, attempt transfer, then fallback to urgent callback handling if transfer fails.",
+    "office_hours_flow_summary": "During business hours, greet caller, capture purpose and contact details, transfer or route call, then confirm next steps and close.",
     "questions_or_unknowns": [],
-    "notes": ""
+    "notes": "Updated using onboarding transcript."
 }

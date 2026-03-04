@@ -1,0 +1,50 @@
+{
+    "workflow_name": "clara-local-file-pipeline",
+    "type": "equivalent-export",
+    "description": "Local, zero-cost workflow equivalent for demo and onboarding processing.",
+    "steps": [
+        {
+            "id": "ingest_demo_transcripts",
+            "kind": "filesystem",
+            "input": "inputs/demo/*.txt",
+            "output": "in-memory transcripts",
+            "notes": "Batch load all demo transcripts and derive account_id from filename."
+        },
+        {
+            "id": "generate_v1_assets",
+            "kind": "python",
+            "entrypoint": "run_demo.py",
+            "output": [
+                "outputs/accounts/<account_id>/v1/memo.json",
+                "outputs/accounts/<account_id>/v1/agent_spec.json"
+            ]
+        },
+        {
+            "id": "ingest_onboarding_transcripts",
+            "kind": "filesystem",
+            "input": "inputs/onboarding/*.txt",
+            "output": "in-memory onboarding transcripts"
+        },
+        {
+            "id": "apply_v2_updates",
+            "kind": "python",
+            "entrypoint": "run_onboarding.py",
+            "output": [
+                "outputs/accounts/<account_id>/v2/memo.json",
+                "outputs/accounts/<account_id>/v2/agent_spec.json",
+                "outputs/accounts/<account_id>/changes.json"
+            ]
+        },
+        {
+            "id": "validate_outputs",
+            "kind": "python",
+            "entrypoint": "validate_assignment.py",
+            "expected_result": "VALIDATION PASSED"
+        }
+    ],
+    "run_sequence": [
+        "python run_demo.py",
+        "python run_onboarding.py",
+        "python validate_assignment.py"
+    ]
+}
